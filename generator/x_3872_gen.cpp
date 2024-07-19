@@ -5,7 +5,6 @@
 */
 
 #include <algorithm>
-#include <fmt/core.h>
 #include <fmt/ranges.h>
 #include <string>
 #include <tuple>
@@ -91,8 +90,6 @@ auto print_daughters = [](const auto &record, const auto &ptcl,
 };
 
 int main() {
-  size_t nGenerated{};
-  constexpr size_t nTarget{1000};
   HistogramRegistry hists;
 
   hists.Book("h_e_photons_all", "E_{#gamma}", 100, 0, 8);
@@ -121,7 +118,7 @@ int main() {
                                   3.87169, 0.00122, 0, 0, 0);
   //..............X(3872) decay modes .....................
   // X(3872) --> gamma + gamma     channel
-  pythia.readString("9120443:addChannel = 1 1 0 22 22");  
+  pythia.readString("9120443:addChannel = 1 1 0 22 22");
   // add X(3872) --> gamma + Psi(2S)      channel
   pythia.readString("9120443:addChannel = 1 1 0 22 100443");
   //  X(3872) --> gamma + J/Psi(1S)     channel
@@ -158,6 +155,9 @@ int main() {
 
   pythia.init();
 
+  size_t nGenerated{};
+  constexpr size_t nTarget{1000};
+
   while (nGenerated++ < nTarget) {
     if (!pythia.next()) {
       continue;
@@ -177,7 +177,6 @@ int main() {
       print_daughters(record, kaon);
       print_daughters(record, x3872);
     }
-
 
     // all final particles fill some histograms etc ...:
     size_t nPhotons{};
