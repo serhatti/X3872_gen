@@ -8,7 +8,6 @@ cmake_minimum_required (VERSION  3.5)
 project(pythia8X3872)
 
 
-
 set(INSTALLATION ${PROJECT_BINARY_DIR}/INSTALL)
 set(BINDIR ${INSTALLATION}/bin)
 

@@ -5,11 +5,12 @@
 */
 
 #include <algorithm>
+#include <fmt/core.h>
+#include <fmt/ranges.h>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <variant>
-#include <format>
-
 
 #include "Pythia8/Pythia.h"
 #include "TFile.h"
@@ -27,7 +28,7 @@ public:
     if constexpr (sizeof...(args) == 4) {
       m_histo_list[key] = TH1F(key, std::forward<T>(args)...);
     } else if constexpr (sizeof...(args) == 7) {
-      m_histo_list[key] = TH2F(key, args...);
+      m_histo_list[key] = TH2F(key, std::forward<T>(args)...);
     } else
       static_assert(false, "histogram book error ... ");
   }
@@ -50,7 +51,7 @@ public:
   }
 };
 
-enum pdgIds : int {
+enum pdgId : int {
   Bplus = 521,
   Bminus = -521,
   Kplus = 321,
@@ -59,27 +60,34 @@ enum pdgIds : int {
   Pi0 = 111,
   Pi_plus = 211,
   Pi_minus = -211,
-  Photon = 22
+  Photon = 22,
+  Psi = 443,
+  Psi2S = 100443,
+  D0 = 421,
+  D0_bar = -421,
+  Dplus = 411,
+  Dminus = -411
 };
 
 // pick the last particle from the record as in Section-4 here :
 // https://pythia.org/download/pdf/worksheet8183.pdf
-auto find_last_particle = [](const auto *particles, int id) {
-  return std::find_if(particles->rbegin(), particles->rend(),
-                      [&id](const auto &p) { return p.id() == id; });
+
+auto find_particle = [](const auto *particles, int id) {
+  auto rit =
+      std::find_if(particles->rbegin(), particles->rend(),
+                   [&id](const auto &p) { return std::abs(p.id()) == id; });
+  return std::tuple{rit, rit == particles->rend() ? false : true};
 };
 
-auto find_last_particle_or_anti = [](const auto *particles, int id) {
-  return std::find_if(particles->rbegin(), particles->rend(),
-                      [&id](const auto &p) { return std::abs(p.id()) == id; });
-};
-
-auto print_daughters = [](const auto &record, const auto &ptcl) {
-  std::cout << ptcl.name() << " ->";
-  for (auto i : ptcl.daughterListRecursive()) {
-    std::cout << " " << record->at(i).name() << " + ";
+auto print_daughters = [](const auto &record, const auto &ptcl,
+                          bool all = false) {
+  std::vector<std::string> names;
+  const auto &daughters =
+      all ? ptcl.daughterListRecursive() : ptcl.daughterList();
+  for (auto i : daughters) {
+    names.push_back(std::move(record->at(i).name()));
   }
-  std::cout << " \n";
+  fmt::print("{} -> {} \n", ptcl.name(), names);
 };
 
 int main() {
@@ -94,33 +102,51 @@ int main() {
 
   Pythia pythia;
 
-  // Add X(3872) meson to Pythia's database or something ...
-  pythia.particleData.addParticle(9120443, "X_3872", "X_3872", 3, 0, 0, 3.87169,
-                                  0.00122);
-  pythia.readString("9120443:mayDecay = on");
-
   // p-p collisions at sqrt(s) in [GeV]
   pythia.readString("Beams:eCM = 13000.");
   pythia.readString("Beams:idA = 2212");
   pythia.readString("Beams:idB = 2212");
-  pythia.readString("PhaseSpace:pTHatMin = 20.");
-
-  pythia.readString("PartonLevel:ISR = off");
-  pythia.readString("PartonLevel:FSR = off");
-  pythia.readString("PartonLevel:MPI = off");
 
   // setup proc. for B meson production
   pythia.readString("HardQCD:gg2bbbar = on");
   pythia.readString("HardQCD:qqbar2bbbar = on");
-
-  // turn-off b quark and charged pion decay
+  pythia.readString("PhaseSpace:pTHatMin = 20.");
+  pythia.readString("PartonLevel:ISR = on");
+  pythia.readString("PartonLevel:FSR = on");
+  pythia.readString("PartonLevel:MPI = on");
   pythia.readString("ProcessLevel:resonanceDecays = on");
+
+  // Add X(3872) meson to Pythia's database or something ...
+  pythia.particleData.addParticle(9120443, "X_3872", "X_3872_bar", 3, 0, 0,
+                                  3.87169, 0.00122, 0, 0, 0);
+  //..............X(3872) decay modes .....................
+  // X(3872) --> gamma + gamma     channel
+  pythia.readString("9120443:addChannel = 1 1 0 22 22");  
+  // add X(3872) --> gamma + Psi(2S)      channel
+  pythia.readString("9120443:addChannel = 1 1 0 22 100443");
+  //  X(3872) --> gamma + J/Psi(1S)     channel
+  pythia.readString("9120443:addChannel = 1 1 0 22 443");
+  // X(3872) --> D0 + D0bar + pi0      channel
+  pythia.readString("9120443:addChannel = 1 1 0 421 -421 111");
+  // X(3872) -->  D0 + D0_bar     channel
+  pythia.readString("9120443:addChannel = 1 1 0 421 -421");
+  // X(3872) -->  D+ + D-      channel
+  pythia.readString("9120443:addChannel = 1 1 0 411 -411");
+
+  pythia.readString("9120443:mayDecay = on");
+  /* first turn of all decay modes for X(3872)
+      then turn on as you like
+  */
+  pythia.readString("9120443:onMode = off");
+  pythia.readString("9120443:onIfAll = 22 22");
+
+  /* .............Settings for B mesons ................... */
+  // turn-off b quark decay
   pythia.readString("4:mayDecay = off");
-  pythia.readString("211:mayDecay = off");
-  pythia.readString("443:mayDecay = off");
+  // Force B decays to : B+ --> X(3872) + K+  + H.C
+  pythia.readString("521:oneChannel = 1 1 0 9120443 321");
 
   //  See below with caution ! :
-
   /* https://pythia.org/latest-manual/ParticleDecays.html :
    * ii) The main switch for allowing this particle kind to decay must be on;
    * tested by the mayDecay() method of Event (and ParticleData). By default
@@ -130,13 +156,6 @@ int main() {
    * explicity switched on, e.g. 211:mayDecay = true.
    */
 
-  // only : B+ --> X(3872) + K+  + H.C
-  pythia.readString("521:oneChannel = 1 1 0 9120443 321");
-  //  X(3872) --> J/Psi(1S) + gamma
-  pythia.readString("9120443:oneChannel = 1 1 0 443 22");
-  // X(3872) --> Psi(2S) + gamma
-  pythia.readString("9120443:addChannel = 1 1 0 100443 22");
-
   pythia.init();
 
   while (nGenerated++ < nTarget) {
@@ -144,36 +163,32 @@ int main() {
       continue;
     }
 
-    const auto *particle_record = pythia.event.particles();
+    const auto *record = pythia.event.particles();
     // shortly if a B meson is found ...
-    if (auto B_meson =
-            find_last_particle_or_anti(particle_record, pdgIds::Bplus);
-        B_meson != particle_record->rend()) {
-      auto x3872 = particle_record->at(B_meson->daughter1());
-      auto kaon = particle_record->at(B_meson->daughter2());
+    if (auto [B, found] = find_particle(record, pdgId::Bplus); found) {
+      auto x3872 = record->at(B->daughter1());
+      auto kaon = record->at(B->daughter2());
 
-      if (std::abs(x3872.id()) != pdgIds::X3872) {
+      if (std::abs(x3872.id()) != pdgId::X3872) {
         std::swap(x3872, kaon);
       }
 
-      std::cout << B_meson->name() << " --> " << x3872.name() << " + "
-                << kaon.name() << "\n";
-
-      print_daughters(particle_record, kaon);
-      print_daughters(particle_record, x3872);
+      fmt::print("{} -> {} + {} \n ", B->name(), x3872.name(), kaon.name());
+      print_daughters(record, kaon);
+      print_daughters(record, x3872);
     }
+
 
     // all final particles fill some histograms etc ...:
     size_t nPhotons{};
-    std::for_each(particle_record->begin(), particle_record->end(),
-                  [&](const auto &p) {
-                    if (!p.isFinal())
-                      return;
-                    if (p.id() == pdgIds::Photon) {
-                      ++nPhotons;
-                      hists.Fill("h_e_photons_all", p.e());
-                    }
-                  });
+    std::for_each(record->begin(), record->end(), [&](const auto &p) {
+      if (!p.isFinal())
+        return;
+      if (p.id() == pdgId::Photon) {
+        ++nPhotons;
+        hists.Fill("h_e_photons_all", p.e());
+      }
+    });
 
     hists.Fill("h_all_mult", pythia.event.nFinal());
     hists.Fill("h_charged_mult", pythia.event.nFinal(true));
