@@ -17,6 +17,8 @@
 #include "TH2F.h"
 
 using namespace Pythia8;
+using fmt::print;
+
 
 class HistogramRegistry {
   using Histogram = std::variant<TH1F, TH2F>;
@@ -78,15 +80,15 @@ auto find_particle = [](const auto *particles, int id) {
   return std::tuple{rit, rit == particles->rend() ? false : true};
 };
 
+
 auto print_daughters = [](const auto &record, const auto &ptcl,
                           bool all = false) {
-  std::vector<std::string> names;
-  const auto &daughters =
-      all ? ptcl.daughterListRecursive() : ptcl.daughterList();
-  for (auto i : daughters) {
-    names.push_back(record->at(i).name());
+  const auto& daughters = all ? ptcl.daughterListRecursive() : ptcl.daughterList();
+  print("{} -> [ ",ptcl.name());
+  for(auto i : daughters ){
+    print("{} , ", record->at(i).name() );
   }
-  fmt::print("{} -> {} \n", ptcl.name(), names);
+  print(" ]\n");
 };
 
 int main() {
@@ -103,16 +105,6 @@ int main() {
                                   3.87169, 0.00122, 0, 0, 0);
 
   pythia.readFile("x3872_settings.cmnd");
-
-  //  See below with caution ! :
-  /* https://pythia.org/latest-manual/ParticleDecays.html :
-   * ii) The main switch for allowing this particle kind to decay must be on;
-   * tested by the mayDecay() method of Event (and ParticleData). By default
-   * this is defined as true for all particles with tau0 below 1000 mm, and
-   * false for ones above, see the Particle Data Scheme. This means that mu^+-,
-   * pi^+-, K^+-, K^0_L and n/nbar always remain stable unless decays are
-   * explicity switched on, e.g. 211:mayDecay = true.
-   */
 
   pythia.init();
 
@@ -134,7 +126,7 @@ int main() {
         std::swap(x3872, kaon);
       }
 
-      fmt::print("{} -> {} + {} \n ", B->name(), x3872.name(), kaon.name());
+      print("{} -> {} + {} \n ", B->name(), x3872.name(), kaon.name());
       print_daughters(record, kaon);
       print_daughters(record, x3872);
     }

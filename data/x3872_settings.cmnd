@@ -1,3 +1,13 @@
+  ! See below with caution ! :
+  ! https://pythia.org/latest-manual/ParticleDecays.html :
+  ! ii) The main switch for allowing this particle kind to decay must be on;
+  ! tested by the mayDecay() method of Event (and ParticleData). By default
+  ! this is defined as true for all particles with tau0 below 1000 mm, and 
+  ! false for ones above, see the Particle Data Scheme. This means that mu^+-,
+  ! pi^+-, K^+-, K^0_L and n/nbar always remain stable unless decays are
+  ! explicity switched on, e.g. 211:mayDecay = true.
+
+
 Beams:eCM = 13000.
 Beams:idA = 2212
 Beams:idB = 2212
