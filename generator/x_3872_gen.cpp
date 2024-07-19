@@ -84,7 +84,7 @@ auto print_daughters = [](const auto &record, const auto &ptcl,
   const auto &daughters =
       all ? ptcl.daughterListRecursive() : ptcl.daughterList();
   for (auto i : daughters) {
-    names.push_back(std::move(record->at(i).name()));
+    names.push_back(record->at(i).name());
   }
   fmt::print("{} -> {} \n", ptcl.name(), names);
 };
@@ -98,50 +98,11 @@ int main() {
   hists.Book("h_charged_mult", "charged particle multiplicity", 50, 0, 1000);
 
   Pythia pythia;
-
-  // p-p collisions at sqrt(s) in [GeV]
-  pythia.readString("Beams:eCM = 13000.");
-  pythia.readString("Beams:idA = 2212");
-  pythia.readString("Beams:idB = 2212");
-
-  // setup proc. for B meson production
-  pythia.readString("HardQCD:gg2bbbar = on");
-  pythia.readString("HardQCD:qqbar2bbbar = on");
-  pythia.readString("PhaseSpace:pTHatMin = 20.");
-  pythia.readString("PartonLevel:ISR = on");
-  pythia.readString("PartonLevel:FSR = on");
-  pythia.readString("PartonLevel:MPI = on");
-  pythia.readString("ProcessLevel:resonanceDecays = on");
-
   // Add X(3872) meson to Pythia's database or something ...
   pythia.particleData.addParticle(9120443, "X_3872", "X_3872_bar", 3, 0, 0,
                                   3.87169, 0.00122, 0, 0, 0);
-  //..............X(3872) decay modes .....................
-  // X(3872) --> gamma + gamma     channel
-  pythia.readString("9120443:addChannel = 1 1 0 22 22");
-  // add X(3872) --> gamma + Psi(2S)      channel
-  pythia.readString("9120443:addChannel = 1 1 0 22 100443");
-  //  X(3872) --> gamma + J/Psi(1S)     channel
-  pythia.readString("9120443:addChannel = 1 1 0 22 443");
-  // X(3872) --> D0 + D0bar + pi0      channel
-  pythia.readString("9120443:addChannel = 1 1 0 421 -421 111");
-  // X(3872) -->  D0 + D0_bar     channel
-  pythia.readString("9120443:addChannel = 1 1 0 421 -421");
-  // X(3872) -->  D+ + D-      channel
-  pythia.readString("9120443:addChannel = 1 1 0 411 -411");
 
-  pythia.readString("9120443:mayDecay = on");
-  /* first turn of all decay modes for X(3872)
-      then turn on as you like
-  */
-  pythia.readString("9120443:onMode = off");
-  pythia.readString("9120443:onIfAll = 22 22");
-
-  /* .............Settings for B mesons ................... */
-  // turn-off b quark decay
-  pythia.readString("4:mayDecay = off");
-  // Force B decays to : B+ --> X(3872) + K+  + H.C
-  pythia.readString("521:oneChannel = 1 1 0 9120443 321");
+  pythia.readFile("x3872_settings.cmnd");
 
   //  See below with caution ! :
   /* https://pythia.org/latest-manual/ParticleDecays.html :

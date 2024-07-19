@@ -1,0 +1,24 @@
+Beams:eCM = 13000.
+Beams:idA = 2212
+Beams:idB = 2212
+HardQCD:gg2bbbar = on
+HardQCD:qqbar2bbbar = on
+PhaseSpace:pTHatMin = 20.
+PartonLevel:ISR = on
+PartonLevel:FSR = on
+PartonLevel:MPI = on
+ProcessLevel:resonanceDecays = on
+
+9120443:addChannel = 1 1 0 22 22
+9120443:addChannel = 1 1 0 22 100443
+9120443:addChannel = 1 1 0 22 443
+9120443:addChannel = 1 1 0 421 -421 111
+9120443:addChannel = 1 1 0 421 -421
+9120443:addChannel = 1 1 0 411 -411
+
+9120443:mayDecay = on
+9120443:onMode = off
+9120443:onIfAll = 22 22
+
+4:mayDecay = off"
+521:oneChannel = 1 1 0 9120443 321
