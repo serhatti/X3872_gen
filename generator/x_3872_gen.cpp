@@ -3,6 +3,7 @@
   author : Serhat Istin
           istin@cern.ch
 */
+//#define DEBUG_GEN 
 
 #include <algorithm>
 #include <fmt/ranges.h>
@@ -12,13 +13,14 @@
 #include <variant>
 
 #include "Pythia8/Pythia.h"
+#include <Math/Vector4D.h>
 #include "TFile.h"
 #include "TH1F.h"
 #include "TH2F.h"
 
 using namespace Pythia8;
+using FourMom = ROOT::Math::PtEtaPhiEVector;
 using fmt::print;
-
 
 class HistogramRegistry {
   using Histogram = std::variant<TH1F, TH2F>;
@@ -81,23 +83,37 @@ auto find_particle = [](const auto *particles, int id) {
 };
 
 
-auto print_daughters = [](const auto &record, const auto &ptcl,
+  auto print_daughters = [](const auto &record, const auto &ptcl,
                           bool all = false) {
   const auto& daughters = all ? ptcl.daughterListRecursive() : ptcl.daughterList();
-  print("{} -> [ ",ptcl.name());
-  for(auto i : daughters ){
-    print("{} , ", record->at(i).name() );
-  }
-  print(" ]\n");
+  std::vector<std::string> names(daughters.size());
+  std::transform(daughters.begin(), daughters.end(),names.begin(),[&record](int i ){ return (*record)[i].name(); });
+  print("{} -> {}\n",ptcl.name(),names);
 };
 
 int main() {
+
   HistogramRegistry hists;
 
-  hists.Book("h_e_photons_all", "E_{#gamma}", 100, 0, 8);
+  hists.Book("h_photons_all_E", "E_{#gamma}", 100, 0, 8);
   hists.Book("h_all_mult", " particle multiplicity", 50, 0, 1000);
   hists.Book("h_photon_mult", "photon multiplicity", 50, 0, 1000);
   hists.Book("h_charged_mult", "charged particle multiplicity", 50, 0, 1000);
+  
+  hists.Book("h_B_pt","B meson",100,0,100);
+  hists.Book("h_B_eta","B meson",100,-3,3);
+  hists.Book("h_B_phi","B meson",100,-4,4);
+  hists.Book("h_B_E","B meson",100,0,150);
+
+  hists.Book("h_K_pt","Kaon",100,0,100);
+  hists.Book("h_K_eta","Kaon",100,-3,3);
+  hists.Book("h_K_phi","Kaon",100,-4,4);
+  hists.Book("h_K_E","Kaon",100,0,150);    
+
+  hists.Book("h_X3872_pt","X(3872)",100,0,100);
+  hists.Book("h_X3872_eta","X(3872)",100,-3,3);
+  hists.Book("h_X3872_phi","X(3872)",100,-4,4);
+  hists.Book("h_X3872_E","X(3872)",100,0,150);
 
   Pythia pythia;
   // Add X(3872) meson to Pythia's database or something ...
@@ -109,7 +125,7 @@ int main() {
   pythia.init();
 
   size_t nGenerated{};
-  constexpr size_t nTarget{1000};
+  constexpr size_t nTarget{10000};
 
   while (nGenerated++ < nTarget) {
     if (!pythia.next()) {
@@ -118,27 +134,44 @@ int main() {
 
     const auto *record = pythia.event.particles();
     // shortly if a B meson is found ...
-    if (auto [B, found] = find_particle(record, pdgId::Bplus); found) {
-      auto x3872 = record->at(B->daughter1());
-      auto kaon = record->at(B->daughter2());
+    if (const auto& [B, found] = find_particle(record, pdgId::Bplus); found) {
+       auto x3872 = record->at(B->daughter1());
+       auto kaon = record->at(B->daughter2());
+       hists.Fill("h_B_pt",B->pT());
+       hists.Fill("h_B_eta",B->eta());
+       hists.Fill("h_B_phi",B->phi());
+       hists.Fill("h_B_E",B->e());
+
+       hists.Fill("h_K_pt",kaon.pT());
+       hists.Fill("h_K_eta",kaon.eta());
+       hists.Fill("h_K_phi",kaon.phi());
+       hists.Fill("h_K_E",kaon.e());
+
+       hists.Fill("h_X3872_pt",x3872.pT());
+       hists.Fill("h_X3872_eta",x3872.eta());
+       hists.Fill("h_X3872_phi",x3872.phi());
+       hists.Fill("h_X3872_E",x3872.e());
+
 
       if (std::abs(x3872.id()) != pdgId::X3872) {
         std::swap(x3872, kaon);
       }
 
+      #ifdef DEBUG_GEN
       print("{} -> {} + {} \n ", B->name(), x3872.name(), kaon.name());
       print_daughters(record, kaon);
-      print_daughters(record, x3872);
+      print_daughters(record, x3872,true);
+      #endif
     }
 
-    // all final particles fill some histograms etc ...:
+    // filter all final particles, fill some histograms  ...:
     size_t nPhotons{};
     std::for_each(record->begin(), record->end(), [&](const auto &p) {
       if (!p.isFinal())
         return;
       if (p.id() == pdgId::Photon) {
         ++nPhotons;
-        hists.Fill("h_e_photons_all", p.e());
+        hists.Fill("h_photons_all_E", p.e());
       }
     });
 
