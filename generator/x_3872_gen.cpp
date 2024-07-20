@@ -142,6 +142,10 @@ int main() {
     if (const auto &[B, found] = find_particle(record, pdgId::Bplus); found) {
       auto x3872 = record->at(B->daughter1());
       auto kaon = record->at(B->daughter2());
+      if (std::abs(x3872.id()) != pdgId::X3872) {
+        std::swap(x3872, kaon);
+      }
+
       hists.Fill("h_B_pt", B->pT());
       hists.Fill("h_B_eta", B->eta());
       hists.Fill("h_B_phi", B->phi());
@@ -157,9 +161,6 @@ int main() {
       hists.Fill("h_X3872_phi", x3872.phi());
       hists.Fill("h_X3872_E", x3872.e());
 
-      if (std::abs(x3872.id()) != pdgId::X3872) {
-        std::swap(x3872, kaon);
-      }
 
 #ifdef DEBUG_GEN
       fmt::print("{} -> {} + {} \n ", B->name(), x3872.name(), kaon.name());
