@@ -12,6 +12,11 @@ set(INSTALLATION ${PROJECT_BINARY_DIR}/INSTALL)
 set(BINDIR ${INSTALLATION}/bin)
 
 
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED On)
+set(CMAKE_CXX_EXTENSIONS Off)
+
+
 find_program( ROOT-CONFIG root-config) 
 if( NOT ROOT-CONFIG )
   message( FATAL_ERROR "root-config not found !" )
