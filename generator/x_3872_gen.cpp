@@ -28,47 +28,42 @@ enum pdgId : int {
 };
 
 template <typename F, typename P = Pythia8::Particle>
-concept ParticlePredicate = requires(F& predicate, P ptcl) {
-  { predicate(ptcl) } -> std::same_as<bool>;
+concept ParticlePredicate = requires(F pred, P ptcl) {
+  { pred(ptcl) } -> std::same_as<bool>;
 };
 
-template <ParticlePredicate P>
-auto filter_particles(const auto *record, P pred)
-
-{
-  std::vector<Pythia8::Particle> particles(record->size());
-  auto it =
-      std::copy_if(record->cbegin(), record->cend(), particles.begin(), pred);
-  particles.resize(std::distance(particles.begin(), it));
-  return particles;
-};
-
-template <ParticlePredicate P>
-auto filter_indices(const auto *record, P pred)
-
-{
-  std::vector<size_t> indices(4);
-  for (const auto &particle : *record) {
-    if (pred(particle)) {
-      indices.push_back(particle.index());
-    }
+template <typename Cont = std::vector<Pythia8::Particle>, ParticlePredicate P>
+auto copy_daughters(const Cont &record, const auto &ptcl, P &&pred) {
+  Cont daughters;
+  for (auto i : ptcl.daughterListRecursive()) {
+    if (!pred(ptcl))
+      continue;
+    daughters.push_back(ptcl);
   }
-  return indices;
-};
+  return daughters;
+}
 
-auto print_daughters = [](const auto *record, const auto &ptcl,
+auto print_daughters = [](const auto &record, const auto &ptcl,
                           bool all = false) {
   const auto &daughters =
       all ? ptcl.daughterListRecursive() : ptcl.daughterList();
   std::vector<decltype(ptcl.name())> names(daughters.size());
   std::transform(daughters.begin(), daughters.end(), names.begin(),
-                 [&record](int i) { return (*record)[i].name(); });
+                 [&record](int i) { return record[i].name(); });
   fmt::println("{} -> {}", ptcl.name(), names);
 };
 
+auto all = [](const auto &p) { return true; };
+
+auto is_final = [](const auto &p) { return p.isFinal(); };
+
+auto is_photon = [](const auto &p) { return p.id() == pdgId::Photon; };
+
+// pick a b meson produced via hadronization , B is also decayed and not present
+// anymore
 auto is_b_meson = [](const auto &p) {
   return std::abs(p.id()) == pdgId::Bplus and
-         (p.status() == -83 or p.status() == -84);
+         (p.status() < -80 and p.status() > -87);
 };
 
 int main() {
@@ -76,8 +71,8 @@ int main() {
   HistogramRegistry hists;
 
   hists.Book("h_photons_all_E", "E_{#gamma}", 100, 0, 8);
-  hists.Book("h_all_mult", " particle multiplicity", 100, 0, 1000);
-  hists.Book("h_photon_mult", "photon multiplicity", 100, 0, 1000);
+  hists.Book("h_all_mult", " particle multiplicity", 500, 0, 500);
+  hists.Book("h_photon_mult", "photon multiplicity", 500, 0, 500);
   hists.Book("h_charged_mult", "charged particle multiplicity", 50, 0, 1000);
 
   hists.Book("h_B_pt", "B meson", 100, 0, 100);
@@ -123,12 +118,11 @@ int main() {
       continue;
     }
 
-    const auto *record = pythia.event.particles();
-    const auto &b_mesons = filter_particles(record, is_b_meson);
-
+    const auto &record = *(pythia.event.particles());
+    auto b_mesons = record | std::views::filter(is_b_meson);
     for (const auto &B : b_mesons) {
-      auto kaon = record->at(B.daughter1());
-      auto x3872 = record->at(B.daughter2());
+      auto kaon = record.at(B.daughter1());
+      auto x3872 = record.at(B.daughter2());
       if (std::abs(x3872.id()) != pdgId::X3872) {
         std::swap(kaon, x3872);
       }
@@ -136,7 +130,7 @@ int main() {
       hists.Fill("h_B_eta", B.eta());
       hists.Fill("h_B_phi", B.phi());
       hists.Fill("h_B_E", B.e());
-      hists.Fill("h_B_N", b_mesons.size());
+      hists.Fill("h_B_N", std::ranges::distance(b_mesons));
 
       hists.Fill("h_X3872_pt", x3872.pT());
       hists.Fill("h_X3872_eta", x3872.eta());
@@ -148,24 +142,29 @@ int main() {
       hists.Fill("h_K_phi", kaon.phi());
       hists.Fill("h_K_E", kaon.e());
 
-      const auto &x3872_d1 = record->at(x3872.daughter1());
-      const auto &x3872_d2 = record->at(x3872.daughter2());
+      const auto &x3872_d1 = record.at(x3872.daughter1());
+      const auto &x3872_d2 = record.at(x3872.daughter2());
+
+      hists.Fill("h_X3872_d1_pt", x3872_d1.pT());
+      hists.Fill("h_X3872_d1_eta", x3872_d1.eta());
+      hists.Fill("h_X3872_d1_phi", x3872_d1.phi());
+      hists.Fill("h_X3872_d1_E", x3872_d1.e());
+
+      hists.Fill("h_X3872_d2_pt", x3872_d2.pT());
+      hists.Fill("h_X3872_d2_eta", x3872_d2.eta());
+      hists.Fill("h_X3872_d2_phi", x3872_d2.phi());
+      hists.Fill("h_X3872_d2_E", x3872_d2.e());
+
+      const auto &x3872_products = copy_daughters(record, x3872, is_final);
+      print_daughters(record, x3872);
     }
 
-    // filter all final particles, fill some histograms  ...:
-    size_t nPhotons{};
-    std::for_each(record->begin(), record->end(), [&](const auto &p) {
-      if (!p.isFinal())
-        return;
-      if (p.id() == pdgId::Photon) {
-        ++nPhotons;
-        hists.Fill("h_photons_all_E", p.e());
-      }
-    });
+    auto final_particles = record | std::views::filter(is_final);
+    auto all_photons = final_particles | std::views::filter(is_photon);
 
-    hists.Fill("h_all_mult", pythia.event.nFinal());
+    hists.Fill("h_all_mult", std::ranges::distance(final_particles));
     hists.Fill("h_charged_mult", pythia.event.nFinal(true));
-    hists.Fill("h_photon_mult", nPhotons);
+    hists.Fill("h_photon_mult", std::ranges::distance(all_photons));
 
   } // event loop
 

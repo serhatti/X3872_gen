@@ -1,3 +1,9 @@
+/*
+  author : Serhat Istin
+          istin@cern.ch
+*/
+
+
 #ifndef HISTOGRAMREGISTRY_H
 #define HISTOGRAMREGISTRY_H
 
