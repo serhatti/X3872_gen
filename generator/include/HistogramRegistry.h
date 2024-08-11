@@ -20,15 +20,17 @@
 class HistogramRegistry {
   using Histogram = std::variant<TH1F, TH2F>;
   std::unordered_map<std::string, Histogram> m_histo_list;
+  std::vector<std::string> m_keys;
 
 public:
-  template <typename K, typename... T> void Book(K key, T &&...args) {
+  template <typename K, typename... T> void Book(const K& key, T &&...args) {
     if constexpr (sizeof...(args) == 4) {
       m_histo_list[key] = TH1F(key, std::forward<T>(args)...);
     } else if constexpr (sizeof...(args) == 7) {
       m_histo_list[key] = TH2F(key, std::forward<T>(args)...);
     } else
       static_assert(false, "histogram book error ... ");
+      m_keys.push_back(key);
   }
 
   template <typename... T> void Fill(const std::string &key, T... val) {
@@ -46,9 +48,10 @@ public:
   }
 
   void Write(const char *fname) {
+    std::sort(m_keys.begin(),m_keys.end());
     auto *f = TFile::Open(fname, "RECREATE");
-    for (const auto &[k, v] : m_histo_list) {
-      std::visit([](auto &el) { el.Write(); }, v);
+    for (const auto & k : m_keys) {
+      std::visit([](auto &el) { el.Write(); }, m_histo_list[k]);
     }
     f->Close();
   }

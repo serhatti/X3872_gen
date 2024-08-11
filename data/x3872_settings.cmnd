@@ -19,6 +19,11 @@ PartonLevel:FSR = on
 PartonLevel:MPI = on
 ProcessLevel:resonanceDecays = on
 
+! **** B meson decay channels ****
+4:mayDecay = off
+521:oneChannel = 1 1 0 9120443 321
+
+! **** X3872 decay channels ****
 9120443:addChannel = 1 1 0 22 22
 9120443:addChannel = 1 1 0 22 100443
 9120443:addChannel = 1 1 0 22 443
@@ -26,9 +31,13 @@ ProcessLevel:resonanceDecays = on
 9120443:addChannel = 1 1 0 421 -421
 9120443:addChannel = 1 1 0 411 -411
 
-9120443:mayDecay = on
 9120443:onMode = off
-9120443:onIfAll = 22 22
+!9120443:onIfAll = 22 22
+9120443:onIfAll = 22 100443
+!9120443:onIfAll = 22 443
 
-4:mayDecay = off
-521:oneChannel = 1 1 0 9120443 321
+
+!J/Psi Psi(2S) channels
+100443:onMode = off
+443:onMode = off
+
