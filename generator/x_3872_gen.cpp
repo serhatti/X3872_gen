@@ -7,9 +7,7 @@
 
 #include <algorithm>
 #include <fmt/ranges.h>
-#include <format>
 #include <ranges>
-#include <tuple>
 
 #include "Pythia8/Pythia.h"
 #include "include/HistogramRegistry.h"
