@@ -6,6 +6,7 @@
 // #define DEBUG_GEN
 
 #include <algorithm>
+#include <cmath>
 #include <fmt/ranges.h>
 #include <ranges>
 
@@ -42,6 +43,15 @@ auto is_x3872 = [](const auto &p) { return std::abs(p.id()) == pdgId::X3872; };
 auto is_kaon = [](const auto &p) { return std::abs(p.id()) == pdgId::Kplus; };
 
 auto is_decayed = [](const auto &p) { return p.status() < 0; };
+
+auto d0 = [](const auto &p) {
+  return std::sqrt(p.xDec() * p.xDec() + p.yDec() * p.yDec());
+};
+
+auto dist = [](const auto &p) {
+  return std::sqrt(p.xDec() * p.xDec() + p.yDec() * p.yDec() +
+                   p.zDec() * p.zDec());
+};
 
 template <typename F, typename P = Pythia8::Particle>
 concept ParticlePredicate = requires(F pred, P ptcl) {
@@ -82,12 +92,19 @@ int main() {
   hists.Book("h_B_phi", "B meson", 100, -4, 4);
   hists.Book("h_B_E", "B meson", 100, 0, 150);
   hists.Book("h_B_N", "Bmeson", 10, 0, 10);
+  hists.Book("h_B_zProd", "B meson", 100, -100, 100);
+  hists.Book("h_B_zDec", "B meson", 100, -100, 100);
+  hists.Book("h_B_d0", "B meson", 100, 0, 100);
 
   hists.Book("h_X3872_pt", "X(3872)", 100, 0, 100);
   hists.Book("h_X3872_eta", "X(3872)", 100, -3, 3);
   hists.Book("h_X3872_phi", "X(3872)", 100, -4, 4);
   hists.Book("h_X3872_E", "X(3872)", 100, 0, 150);
   hists.Book("h_X3872_N", "X(3872)", 10, 0, 10);
+  hists.Book("h_X3872_zProd", "X(3872)", 100, -100, 100);
+  hists.Book("h_X3872_zDec", "X(3872)", 100, -100, 100);
+  hists.Book("h_X3872_d0", "X(3872)", 100, 0, 100);
+  hists.Book("h_X3872_dist", "X(3872)", 100, 0, 100);
 
   hists.Book("h_X3872_d1_pt", "X(3872) daughter1", 100, 0, 60);
   hists.Book("h_X3872_d1_eta", "X(3872) daughter1", 100, -3, 3);
@@ -129,6 +146,9 @@ int main() {
       hists.Fill("h_B_eta", B.eta());
       hists.Fill("h_B_phi", B.phi());
       hists.Fill("h_B_E", B.e());
+      hists.Fill("h_B_zProd", B.zProd());
+      hists.Fill("h_B_zDec", B.zDec());
+      hists.Fill("h_B_d0", d0(B));
     }
 
     for (const auto &x3872 : x3872s) {
@@ -136,16 +156,20 @@ int main() {
       hists.Fill("h_X3872_eta", x3872.eta());
       hists.Fill("h_X3872_phi", x3872.phi());
       hists.Fill("h_X3872_E", x3872.e());
-      const auto &d1 = record[x3872.daughter1()];
-      const auto &d2 = record[x3872.daughter2()];
-      hists.Fill("h_X3872_d1_pt", d1.pT());
-      hists.Fill("h_X3872_d1_eta", d1.eta());
-      hists.Fill("h_X3872_d1_phi", d1.phi());
-      hists.Fill("h_X3872_d1_E", d1.e());
-      hists.Fill("h_X3872_d2_pt", d2.pT());
-      hists.Fill("h_X3872_d2_eta", d2.eta());
-      hists.Fill("h_X3872_d2_phi", d2.phi());
-      hists.Fill("h_X3872_d2_E", d2.e());
+      hists.Fill("h_X3872_zProd", x3872.zProd());
+      hists.Fill("h_X3872_zDec", x3872.zDec());
+      hists.Fill("h_X3872_d0", d0(x3872));
+      hists.Fill("h_X3872_dist", dist(x3872));
+      const auto &daught1 = record[x3872.daughter1()];
+      const auto &daught2 = record[x3872.daughter2()];
+      hists.Fill("h_X3872_d1_pt", daught1.pT());
+      hists.Fill("h_X3872_d1_eta", daught1.eta());
+      hists.Fill("h_X3872_d1_phi", daught1.phi());
+      hists.Fill("h_X3872_d1_E", daught1.e());
+      hists.Fill("h_X3872_d2_pt", daught2.pT());
+      hists.Fill("h_X3872_d2_eta", daught2.eta());
+      hists.Fill("h_X3872_d2_phi", daught2.phi());
+      hists.Fill("h_X3872_d2_E", daught2.e());
 #ifdef DEBUG_GEN
       fmt::println("d1={} d2={}", d1.name(), d2.name());
 #endif
