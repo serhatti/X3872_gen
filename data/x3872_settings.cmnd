@@ -33,11 +33,12 @@ ProcessLevel:resonanceDecays = on
 
 9120443:onMode = off
 !9120443:onIfAll = 22 22
-9120443:onIfAll = 22 100443
-!9120443:onIfAll = 22 443
+!9120443:onIfAll = 22 100443
+9120443:onIfAll = 22 443
 
 
 !J/Psi Psi(2S) channels
 100443:onMode = off
 443:onMode = off
+443:onIfAll = 13 -13
 

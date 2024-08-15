@@ -20,6 +20,8 @@ enum pdgId : int {
   Pi0 = 111,
   Pi_plus = 211,
   Photon = 22,
+  Muon = 13,
+  Electron = 11,
   Psi = 443,
   Psi2S = 100443,
   D0 = 421,
@@ -38,9 +40,15 @@ auto is_b_meson = [](const auto &p) {
 
 auto is_photon = [](const auto &p) { return p.id() == pdgId::Photon; };
 
+auto is_muon = [](const auto &p) { return p.id() == pdgId::Muon; };
+
 auto is_x3872 = [](const auto &p) { return std::abs(p.id()) == pdgId::X3872; };
 
 auto is_kaon = [](const auto &p) { return std::abs(p.id()) == pdgId::Kplus; };
+
+auto is_psi = [](const auto &p) { return std::abs(p.id()) == pdgId::Psi; };
+
+auto is_psi2s = [](const auto &p) { return std::abs(p.id()) == pdgId::Psi2S; };
 
 auto is_decayed = [](const auto &p) { return p.status() < 0; };
 
@@ -64,7 +72,7 @@ auto copy_daughters(const Cont &record, const auto &ptcl, P &&pred = all) {
   for (auto i : ptcl.daughterListRecursive()) {
     if (!pred(record[i]))
       continue;
-    daughters.push_back(ptcl);
+    daughters.push_back(record[i]);
   }
   return daughters;
 }
@@ -106,15 +114,15 @@ int main() {
   hists.Book("h_X3872_d0", "X(3872)", 100, 0, 100);
   hists.Book("h_X3872_dist", "X(3872)", 100, 0, 100);
 
-  hists.Book("h_X3872_d1_pt", "X(3872) daughter1", 100, 0, 60);
-  hists.Book("h_X3872_d1_eta", "X(3872) daughter1", 100, -3, 3);
-  hists.Book("h_X3872_d1_phi", "X(3872) daughter1", 100, -4, 4);
-  hists.Book("h_X3872_d1_E", "X(3872) daughter1", 100, 0, 60);
+  hists.Book("h_x3872_muon_pt", "#mu", 100, 0, 60);
+  hists.Book("h_x3872_muon_eta", "#mu", 100, -3, 3);
+  hists.Book("h_x3872_muon_phi", "#mu", 100, -4, 4);
+  hists.Book("h_x3872_muon_e", "#mu", 100, 0, 60);
 
-  hists.Book("h_X3872_d2_pt", "X(3872) daughter2", 100, 0, 60);
-  hists.Book("h_X3872_d2_eta", "X(3872) daughter2", 100, -3, 3);
-  hists.Book("h_X3872_d2_phi", "X(3872) daughter2", 100, -4, 4);
-  hists.Book("h_X3872_d2_E", "X(3872) daughter2", 100, 0, 60);
+  hists.Book("h_x3872_photon_pt", "#gamma", 100, 0, 60);
+  hists.Book("h_x3872_photon_eta", "#gamma", 100, -3, 3);
+  hists.Book("h_x3872_photon_phi", "#gamma", 100, -4, 4);
+  hists.Book("h_x3872_photon_e", "#gamma", 100, 0, 60);
 
   Pythia8::Pythia pythia;
   // Add X(3872) meson to Pythia's database or something ...
@@ -136,12 +144,14 @@ int main() {
     const auto &record = *(pythia.event.particles());
     using std::views::filter;
     auto decayed_particles = record | filter(is_decayed);
-    auto b_mesons = decayed_particles | filter(is_b_meson);
-    auto x3872s = decayed_particles | filter(is_x3872);
+    auto b_meson_list = decayed_particles | filter(is_b_meson);
+    auto x3872_list = decayed_particles | filter(is_x3872);
+    auto jpsi_list = decayed_particles | filter(is_psi);
+    auto psi2s_list = decayed_particles | filter(is_psi2s);
     auto final_particles = record | filter(is_final);
     auto all_photons = final_particles | filter(is_photon);
 
-    for (const auto &B : b_mesons) {
+    for (const auto &B : b_meson_list) {
       hists.Fill("h_B_pt", B.pT());
       hists.Fill("h_B_eta", B.eta());
       hists.Fill("h_B_phi", B.phi());
@@ -151,7 +161,7 @@ int main() {
       hists.Fill("h_B_d0", d0(B));
     }
 
-    for (const auto &x3872 : x3872s) {
+    for (const auto &x3872 : x3872_list) {
       hists.Fill("h_X3872_pt", x3872.pT());
       hists.Fill("h_X3872_eta", x3872.eta());
       hists.Fill("h_X3872_phi", x3872.phi());
@@ -160,23 +170,25 @@ int main() {
       hists.Fill("h_X3872_zDec", x3872.zDec());
       hists.Fill("h_X3872_d0", d0(x3872));
       hists.Fill("h_X3872_dist", dist(x3872));
-      const auto &daught1 = record[x3872.daughter1()];
-      const auto &daught2 = record[x3872.daughter2()];
-      hists.Fill("h_X3872_d1_pt", daught1.pT());
-      hists.Fill("h_X3872_d1_eta", daught1.eta());
-      hists.Fill("h_X3872_d1_phi", daught1.phi());
-      hists.Fill("h_X3872_d1_E", daught1.e());
-      hists.Fill("h_X3872_d2_pt", daught2.pT());
-      hists.Fill("h_X3872_d2_eta", daught2.eta());
-      hists.Fill("h_X3872_d2_phi", daught2.phi());
-      hists.Fill("h_X3872_d2_E", daught2.e());
-#ifdef DEBUG_GEN
-      fmt::println("d1={} d2={}", d1.name(), d2.name());
-#endif
+      const auto &x3872_products = copy_daughters(record, x3872, is_final);
+      auto x3872_muon_list = x3872_products | filter(is_muon);
+      auto x3872_photon_list = x3872_products | filter(is_photon);
+      for (const auto &mu : x3872_muon_list) {
+        hists.Fill("h_x3872_muon_pt", mu.pT());
+        hists.Fill("h_x3872_muon_eta", mu.eta());
+        hists.Fill("h_x3872_muon_phi", mu.phi());
+        hists.Fill("h_x3872_muon_e", mu.e());
+      }
+      for (const auto &ph : x3872_photon_list) {
+        hists.Fill("h_x3872_photon_pt", ph.pT());
+        hists.Fill("h_x3872_photon_eta", ph.eta());
+        hists.Fill("h_x3872_photon_phi", ph.phi());
+        hists.Fill("h_x3872_photon_e", ph.e());
+      }
     }
 
-    hists.Fill("h_B_N", std::ranges::distance(b_mesons));
-    hists.Fill("h_X3872_N", std::ranges::distance(x3872s));
+    hists.Fill("h_B_N", std::ranges::distance(b_meson_list));
+    hists.Fill("h_X3872_N", std::ranges::distance(x3872_list));
     hists.Fill("h_all_mult", std::ranges::distance(final_particles));
     hists.Fill("h_photon_mult", std::ranges::distance(all_photons));
 
